@@ -21,6 +21,7 @@ import numpy as np
 import tqdm
 import lmdb
 
+import torchvision
 import carla
 
 from benchmark import make_suite
@@ -41,8 +42,10 @@ def _debug(observations, agent_debug):
     control = [control.steer, control.throttle, control.brake]
     control = ' '.join(str('%.2f' % x).rjust(5, ' ') for x in control)
     real_control = observations['real_control']
-    real_control = [real_control.steer, real_control.throttle, real_control.brake]
-    real_control = ' '.join(str('%.2f' % x).rjust(5, ' ') for x in real_control)
+    real_control = [real_control.steer,
+                    real_control.throttle, real_control.brake]
+    real_control = ' '.join(str('%.2f' % x).rjust(5, ' ')
+                            for x in real_control)
 
     canvas = np.uint8(observations['rgb']).copy()
     rows = [x * (canvas.shape[0] // 10) for x in range(10+1)]
@@ -56,15 +59,15 @@ def _debug(observations, agent_debug):
 
     def _write(text, i, j):
         cv2.putText(
-                canvas, text, (cols[j], rows[i]),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.4, WHITE, 1)
+            canvas, text, (cols[j], rows[i]),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.4, WHITE, 1)
 
     _command = {
-            1: 'LEFT',
-            2: 'RIGHT',
-            3: 'STRAIGHT',
-            4: 'FOLLOW',
-            }.get(int(observations['command']), '???')
+        1: 'LEFT',
+        2: 'RIGHT',
+        3: 'STRAIGHT',
+        4: 'FOLLOW',
+    }.get(int(observations['command']), '???')
 
     _write('Command: ' + _command, 1, 0)
     _write('Velocity: %.1f' % np.linalg.norm(observations['velocity']), 2, 0)
@@ -77,7 +80,7 @@ def _debug(observations, agent_debug):
     def _dot(x, y, color):
         x = int(x)
         y = int(y)
-        birdview[176-r-x:176+r+1-x,96-r+y:96+r+1+y] = color
+        birdview[176-r-x:176+r+1-x, 96-r+y:96+r+1+y] = color
 
     _dot(0, 0, [255, 255, 255])
 
@@ -108,12 +111,12 @@ def _debug(observations, agent_debug):
     bu.show_image('full', full)
 
 
-
 class NoisyAgent(RoamingAgentMine):
     """
     Each parameter is in units of frames.
     State can be "drive" or "noise".
     """
+
     def __init__(self, env, noise=None):
         super().__init__(env._player, resolution=1, threshold_before=7.5, threshold_after=5.)
 
@@ -124,7 +127,8 @@ class NoisyAgent(RoamingAgentMine):
         self.state = 'drive'
         self.noise_steer = 0
         self.last_throttle = 0
-        self.noise_func = noise if noise else lambda: np.random.uniform(-0.25, 0.25)
+        self.noise_func = noise if noise else lambda: np.random.uniform(
+            -0.25, 0.25)
 
         self.speed_control = PIDController(K_P=0.5, K_I=0.5/20, K_D=0.1)
         self.turn_control = PIDController(K_P=0.75, K_I=1.0/20, K_D=0.0)
@@ -155,9 +159,9 @@ class NoisyAgent(RoamingAgentMine):
             self.last_throttle = control.throttle
 
         self.debug = {
-                'waypoint': (self.waypoint.x, self.waypoint.y, self.waypoint.z),
-                'vehicle': (self.vehicle.x, self.vehicle.y, self.vehicle.z)
-                }
+            'waypoint': (self.waypoint.x, self.waypoint.y, self.waypoint.z),
+            'vehicle': (self.vehicle.x, self.vehicle.y, self.vehicle.z)
+        }
 
         return control, self.road_option, last_status, real_control
 
@@ -167,12 +171,12 @@ def get_episode(env, params):
     progress = tqdm.tqdm(range(params.frames_per_episode), desc='Frame')
     start, target = env.pose_tasks[np.random.randint(len(env.pose_tasks))]
     env_params = {
-            'weather': np.random.choice(list(cu.TRAIN_WEATHERS.keys())),
-            'start': start,
-            'target': target,
-            'n_pedestrians': params.n_pedestrians,
-            'n_vehicles': params.n_vehicles,
-            }
+        'weather': np.random.choice(list(cu.TRAIN_WEATHERS.keys())),
+        'start': start,
+        'target': target,
+        'n_pedestrians': params.n_pedestrians,
+        'n_vehicles': params.n_vehicles,
+    }
 
     env.init(**env_params)
     env.success_dist = 5.0
@@ -186,7 +190,8 @@ def get_episode(env, params):
             env.tick()
 
             observations = env.get_observations()
-            control, command, last_status, real_control = agent.run_step(observations)
+            control, command, last_status, real_control = agent.run_step(
+                observations)
             agent_debug = agent.debug
             env.apply_control(control)
 
@@ -239,17 +244,17 @@ def main(params):
 
                 for i, x in enumerate(data):
                     txn.put(
-                            ('rgb_%04d' % i).encode(),
-                            np.ascontiguousarray(x['rgb']).astype(np.uint8))
+                        ('rgb_%04d' % i).encode(),
+                        np.ascontiguousarray(x['rgb']).astype(np.uint8))
                     txn.put(
-                            ('birdview_%04d' % i).encode(),
-                            np.ascontiguousarray(x['birdview']).astype(np.uint8))
+                        ('birdview_%04d' % i).encode(),
+                        np.ascontiguousarray(x['birdview']).astype(np.uint8))
                     txn.put(
-                            ('measurements_%04d' % i).encode(),
-                            np.ascontiguousarray(x['measurements']).astype(np.float32))
+                        ('measurements_%04d' % i).encode(),
+                        np.ascontiguousarray(x['measurements']).astype(np.float32))
                     txn.put(
-                            ('control_%04d' % i).encode(),
-                            np.ascontiguousarray(x['control']).astype(np.float32))
+                        ('control_%04d' % i).encode(),
+                        np.ascontiguousarray(x['control']).astype(np.float32))
 
             total += len(data)
 
@@ -258,7 +263,8 @@ def main(params):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--planner', type=str, choices=['old', 'new'], default='new')
+    parser.add_argument('--planner', type=str,
+                        choices=['old', 'new'], default='new')
     parser.add_argument('--dataset_path', required=True)
     parser.add_argument('--n_vehicles', type=int, default=100)
     parser.add_argument('--n_pedestrians', type=int, default=250)
